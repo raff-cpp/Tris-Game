@@ -68,7 +68,7 @@ void sendMoveCount(int client_sock, int moveCount) {
 void sendBoardState(int client_sock, TrisGame *game) {
     if (!game) return;
     char buffer[256];
-    stampaTabellone(game, buffer, sizeof(buffer));
+    printBoard(game, buffer, sizeof(buffer));
     safeSend(client_sock, buffer);
 }
 
@@ -259,7 +259,7 @@ GameState* createGame(int client_sock, const char *username) {
             gameStates[i].players[1].isReady = 0;
             gameStates[i].players[1].countMoves = 0;
             memset(gameStates[i].players[1].username, 0, sizeof(gameStates[i].players[1].username));
-            iniziaPartita(&gameStates[i].gameData);
+            startGame(&gameStates[i].gameData);
             gameStates[i].gameData.id = gameStates[i].gameId;
             return &gameStates[i];
         }
@@ -383,7 +383,7 @@ void handleCmdMove(int client_sock, int row, int col) {
         return;
     }
 
-    if (faiMossa(&gs->gameData, row, col) != 0) {
+    if (makeMove(&gs->gameData, row, col) != 0) {
         sendInvalidMove(client_sock);
         return;
     }
@@ -391,7 +391,7 @@ void handleCmdMove(int client_sock, int row, int col) {
     PlayerStatus *player = getPlayerBySocket(gs, client_sock);
     if (player) player->countMoves++;
 
-    gs->result = controllaVincitore(&gs->gameData);
+    gs->result = checkResult(&gs->gameData);
 
     sendFullGameState(gs->players[0].clientSocket, &gs->gameData);
     sendFullGameState(gs->players[1].clientSocket, &gs->gameData);
