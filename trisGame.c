@@ -3,14 +3,14 @@
 #include <string.h>
 #include "trisGame.h"
 
-void iniziaPartita(TrisGame *game) {
+void startGame(TrisGame *game) {
     memset(game->cella, 0, sizeof(game->cella)); // Inizializza la griglia con celle vuote (VUOTA==0)
     game->currentPlayer = 'X'; // Il giocatore X inizia per primo
     game->movesCount = 0; // Contatore delle mosse
 }
 
 
-Risultato controllaVincitore(TrisGame *game) {
+Risultato checkResult(TrisGame *game) {
     // Controlla righe, colonne e diagonali per un vincitore
     for (int i = 0; i < 3; i++) {
         // Controlla la riga i
@@ -36,7 +36,7 @@ Risultato controllaVincitore(TrisGame *game) {
 
 
 
-int faiMossa(TrisGame *game, int row, int col) {
+int makeMove(TrisGame *game, int row, int col) {
     // Controlla se la mossa è valida (dentro i limiti e cella vuota)
     if (row < 0 || row >= 3 || col < 0 || col >= 3 || game->cella[row][col] != VUOTA) {
         return -1; // Mossa non valida
@@ -52,7 +52,7 @@ int faiMossa(TrisGame *game, int row, int col) {
 
 
 
-void stampaTabellone(TrisGame *game, char *buffer, size_t bufsize) {
+void printBoard(TrisGame *game, char *buffer, size_t bufsize) {
     size_t used = 0;
     int n = 0;
     if (bufsize == 0) return;

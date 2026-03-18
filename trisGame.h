@@ -23,21 +23,22 @@ typedef enum { VUOTA, X, O } Cella;
 typedef struct {
     Cella cella[SIZE][SIZE]; // Griglia di gioco
     char currentPlayer;     // X or O
-    int movesCount;          // Numero di mosse effettuate
+    int movesCount;
+    int id;          
 } TrisGame;
 
 
 // Inizializza una nuova partita di tris
-void iniziaPartita(TrisGame *game);
+void startGame(TrisGame *game);
 
 // Controlla se c'è un vincitore o se la partita è in corso; restituisce il risultato
-Risultato controllaVincitore(TrisGame *game);
+Risultato checkResult(TrisGame *game);
 
 // Esegue una mossa nella cella (row, col); restituisce 0 se valida, -1 altrimenti
-int faiMossa(TrisGame *game, int row, int col);
+int makeMove(TrisGame *game, int row, int col);
 
 // Stampa il tabellone di gioco in un buffer di stringa
 // `bufsize` è la dimensione di `buffer` per evitare overflow
-void stampaTabellone(TrisGame *game, char *buffer, size_t bufsize);
+void printBoard(TrisGame *game, char *buffer, size_t bufsize);
 
 #endif 
