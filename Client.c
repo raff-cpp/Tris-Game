@@ -41,22 +41,27 @@ int main() {
     if (server_port_str_env != NULL) {
         snprintf(server_port_str, sizeof(server_port_str), "%s", server_port_str_env); // Copia la porta dall'ambiente
     } else {
-        snprintf(server_port_str, sizeof(server_port_str), "%d", PORT); // Porta di default
+        snprintf(server_port_str, sizeof(server_port_str), "%d", DEFAULT_PORT); // Porta di default
     }
 
 
 
 
-    // Configura l'indirizzo del server
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET; // Famiglia di indirizzi IPv4
-    server_addr.sin_port = htons(atoi(server_port_str)); // Converte la porta in numero e poi in network byte order
-    if (inet_pton(AF_INET, server_host, &server_addr.sin_addr) <= 0) // Converte l'indirizzo IP in formato binario e lo memorizza in server_addr.sin_addr
-    {
-        perror("Indirizzo del server non valido");
+    // Risolve l'hostname del server usando getaddrinfo
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    if (getaddrinfo(server_host, server_port_str, &hints, &res) != 0) {
+        perror("Errore nella risoluzione del server");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+    
+    // Copia l'indirizzo del server risolto
+    memcpy(&server_addr, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo(res);
 
 
 
