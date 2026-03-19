@@ -6,13 +6,51 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
+#include <sys/shm.h>
+#include <semaphore.h>
+#include <fcntl.h>
 #include "server.h"
 
-static GameState gameStates[MAX_GAMES];
-static ClientState clients[MAX_CLIENTS];
-static int nextGameId = 1;
+// Puntatori a memoria condivisa
+static GameState *gameStates = NULL;
+static ClientState *clients = NULL;
+static int *nextGameId_ptr = NULL;
+static sem_t *gamestate_sem = NULL;
+
+// IDs della memoria condivisa
+static int shm_games_id, shm_clients_id, shm_nextid_id;
 
 void initServerState() {
+    // Crea segmenti di memoria condivisa
+    shm_games_id = shmget(IPC_PRIVATE, MAX_GAMES * sizeof(GameState), IPC_CREAT | 0666);
+    shm_clients_id = shmget(IPC_PRIVATE, MAX_CLIENTS * sizeof(ClientState), IPC_CREAT | 0666);
+    shm_nextid_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0666);
+    
+    if (shm_games_id < 0 || shm_clients_id < 0 || shm_nextid_id < 0) {
+        perror("shmget");
+        exit(1);
+    }
+    
+    // Allega i segmenti di memoria condivisa
+    gameStates = (GameState *) shmat(shm_games_id, NULL, 0);
+    clients = (ClientState *) shmat(shm_clients_id, NULL, 0);
+    nextGameId_ptr = (int *) shmat(shm_nextid_id, NULL, 0);
+    
+    if (gameStates == (GameState *)-1 || clients == (ClientState *)-1 || nextGameId_ptr == (int *)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    
+    // Inizializza il semaforo named
+    sem_unlink("/gamestate_sem");
+    gamestate_sem = sem_open("/gamestate_sem", O_CREAT | O_EXCL, 0644, 1);
+    if (gamestate_sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(1);
+    }
+    
+    // Inizializza i dati
+    *nextGameId_ptr = 1;
     for (int i = 0; i < MAX_GAMES; i++) {
         gameStates[i].gameId = 0;
         gameStates[i].isActive = 0;
@@ -246,9 +284,10 @@ void printGameList(int client_sock) {
 /* ===== FUNZIONI DI CREAZIONE/MODIFICA PARTITE ===== */
 
 GameState* createGame(int client_sock, const char *username) {
+    sem_wait(gamestate_sem);
     for (int i = 0; i < MAX_GAMES; i++) {
         if (gameStates[i].gameId == 0) {
-            gameStates[i].gameId = nextGameId++;
+            gameStates[i].gameId = (*nextGameId_ptr)++;
             gameStates[i].isActive = 1;
             gameStates[i].result = IN_CORSO;
             gameStates[i].players[0].clientSocket = client_sock;
@@ -261,9 +300,11 @@ GameState* createGame(int client_sock, const char *username) {
             memset(gameStates[i].players[1].username, 0, sizeof(gameStates[i].players[1].username));
             startGame(&gameStates[i].gameData);
             gameStates[i].gameData.id = gameStates[i].gameId;
+            sem_post(gamestate_sem);
             return &gameStates[i];
         }
     }
+    sem_post(gamestate_sem);
     return NULL;
 }
 
@@ -600,6 +641,16 @@ int main() {
         }
         close(client_sock);
     }
+
+    // Cleanup memoria condivisa e semafori
+    shmdt(gameStates);
+    shmdt(clients);
+    shmdt(nextGameId_ptr);
+    shmctl(shm_games_id, IPC_RMID, NULL);
+    shmctl(shm_clients_id, IPC_RMID, NULL);
+    shmctl(shm_nextid_id, IPC_RMID, NULL);
+    sem_close(gamestate_sem);
+    sem_unlink("/gamestate_sem");
 
     close(server_sock);
     return 0;
